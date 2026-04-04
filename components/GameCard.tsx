@@ -49,7 +49,7 @@ export default function GameCard() {
   const [hintText, setHintText] = useState<string | null>(null);
   const [showTypes, setShowTypes] = useState(false);
   const [showEvo, setShowEvo] = useState(false);
-  const [blurLevel, setBlurLevel] = useState<'blur-2xl' | 'blur-sm' | ''>('blur-2xl');
+  const [blurLevel, setBlurLevel] = useState<'blur-md' | 'blur-[2px]' | ''>('blur-md');
   const [secondChanceUsed, setSecondChanceUsed] = useState(false);
   const [hasSecondChanceActive, setHasSecondChanceActive] = useState(false);
   const [milestoneToShow, setMilestoneToShow] = useState<number | null>(null);
@@ -68,7 +68,7 @@ export default function GameCard() {
     setHintText(null);
     setShowTypes(false);
     setShowEvo(false);
-    setBlurLevel('blur-2xl');
+    setBlurLevel('blur-md');
     setSecondChanceUsed(false);
     setHasSecondChanceActive(false);
     setError(null);
@@ -167,7 +167,7 @@ export default function GameCard() {
         setShowTypes(true);
         break;
       case 'artistInsight':
-        setBlurLevel('blur-sm');
+        setBlurLevel('blur-[2px]');
         break;
       case 'evolutionChain':
         setShowEvo(true);
