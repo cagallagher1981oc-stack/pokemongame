@@ -1,26 +1,146 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0e2a;
+  --foreground: #e8e8ff;
+  --card-bg: #111532;
+  --glow-purple: #9d35ff;
+  --correct-green: #39eb8c;
+  --incorrect-red: #ff356e;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ===================== GLOW ANIMATIONS ===================== */
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 8px 2px rgba(157, 53, 255, 0.4),
+      0 0 24px 6px rgba(157, 53, 255, 0.15),
+      inset 0 0 10px rgba(157, 53, 255, 0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 18px 6px rgba(157, 53, 255, 0.65),
+      0 0 45px 14px rgba(157, 53, 255, 0.25),
+      inset 0 0 18px rgba(157, 53, 255, 0.12);
+  }
+}
+
+@keyframes glow-correct {
+  0%, 100% {
+    box-shadow:
+      0 0 8px 3px rgba(57, 235, 140, 0.5),
+      0 0 24px 8px rgba(57, 235, 140, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 22px 10px rgba(57, 235, 140, 0.8),
+      0 0 50px 18px rgba(57, 235, 140, 0.4);
+  }
+}
+
+@keyframes glow-wrong {
+  0%, 100% {
+    box-shadow:
+      0 0 8px 3px rgba(255, 53, 110, 0.5),
+      0 0 24px 8px rgba(255, 53, 110, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 22px 10px rgba(255, 53, 110, 0.8),
+      0 0 50px 18px rgba(255, 53, 110, 0.4);
+  }
+}
+
+/* Cinematic holographic card reveal */
+@keyframes shimmer-reveal {
+  0% {
+    filter: blur(8px) brightness(0.5) saturate(0.5);
+    transform: scale(1.04);
+  }
+  30% {
+    filter: blur(5px) brightness(0.8) saturate(0.8);
+    transform: scale(1.02);
+  }
+  60% {
+    filter: blur(2px) brightness(1.4) saturate(1.8);
+    transform: scale(1.01);
+  }
+  100% {
+    filter: blur(0px) brightness(1) saturate(1);
+    transform: scale(1);
+  }
+}
+
+/* Floating background orbs */
+@keyframes float-orb {
+  0%, 100% { transform: translateY(0px) scale(1); opacity: 0.4; }
+  50% { transform: translateY(-28px) scale(1.08); opacity: 0.55; }
+}
+
+@keyframes float-orb-slow {
+  0%, 100% { transform: translateY(0px) scale(1) rotate(0deg); opacity: 0.3; }
+  50% { transform: translateY(-16px) scale(1.05) rotate(8deg); opacity: 0.45; }
+}
+
+/* Pulsing card image energy ring */
+@keyframes ring-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.65; transform: scale(1.04); }
+}
+
+/* ===================== UTILITY CLASSES ===================== */
+
+.card-glow {
+  animation: glow-pulse 2.8s ease-in-out infinite;
+}
+
+.glow-correct {
+  animation: glow-correct 1.4s ease-in-out infinite;
+}
+
+.glow-wrong {
+  animation: glow-wrong 1.4s ease-in-out infinite;
+}
+
+.shimmer-reveal {
+  animation: shimmer-reveal 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.orb-float {
+  animation: float-orb 7s ease-in-out infinite;
+}
+
+.orb-float-slow {
+  animation: float-orb-slow 10s ease-in-out infinite;
+}
+
+.ring-pulse {
+  animation: ring-pulse 2s ease-in-out infinite;
+}
+
+/* Dark scrollbar for gallery */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #111532;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(157, 53, 255, 0.4);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(157, 53, 255, 0.7);
 }

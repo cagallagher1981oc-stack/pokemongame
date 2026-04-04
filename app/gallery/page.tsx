@@ -18,18 +18,31 @@ export default function GalleryPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-100 via-purple-50 to-pink-100 px-4 py-6">
+    <main
+      className="min-h-screen px-4 py-6"
+      style={{ background: 'linear-gradient(160deg, #0a0e2a 0%, #12103a 55%, #1d1448 100%)' }}
+    >
       <div className="max-w-4xl mx-auto">
         <header className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-3xl font-black text-indigo-900">Oliver&apos;s Collection</h1>
-            <p className="text-indigo-600 font-semibold">
+            <h1
+              className="text-3xl font-black"
+              style={{ color: '#c8a8ff', textShadow: '0 0 20px rgba(157, 53, 255, 0.4)' }}
+            >
+              Oliver&apos;s Collection
+            </h1>
+            <p className="font-semibold" style={{ color: '#7a5aaa' }}>
               {total} / {TARGET} cards captured
             </p>
           </div>
           <Link
             href="/"
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-5 rounded-full transition-colors text-sm"
+            className="font-bold py-2 px-5 rounded-full transition-all text-sm hover:scale-105"
+            style={{
+              background: 'linear-gradient(135deg, #7b2fff, #c86fff)',
+              color: '#fff',
+              boxShadow: '0 0 14px rgba(157, 53, 255, 0.4)',
+            }}
           >
             ← Play
           </Link>
@@ -38,8 +51,8 @@ export default function GalleryPage() {
         {cards.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">🎴</div>
-            <p className="text-indigo-700 font-bold text-xl">No cards captured yet!</p>
-            <p className="text-indigo-500 mt-1">Head back and start guessing.</p>
+            <p className="font-bold text-xl" style={{ color: '#c8a8ff' }}>No cards captured yet!</p>
+            <p className="mt-1" style={{ color: '#7a5aaa' }}>Head back and start guessing.</p>
           </div>
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
@@ -47,7 +60,20 @@ export default function GalleryPage() {
               <button
                 key={card.id}
                 onClick={() => setSelected(card)}
-                className="relative aspect-[2/3] rounded-xl overflow-hidden shadow-md hover:shadow-xl hover:scale-105 transition-all border-2 border-indigo-200 hover:border-indigo-500 bg-white"
+                className="relative aspect-[2/3] rounded-xl overflow-hidden transition-all hover:scale-105"
+                style={{
+                  border: '1px solid rgba(157, 53, 255, 0.25)',
+                  background: '#111532',
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.border = '1px solid rgba(157, 53, 255, 0.7)';
+                  e.currentTarget.style.boxShadow = '0 0 16px rgba(157, 53, 255, 0.35)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.border = '1px solid rgba(157, 53, 255, 0.25)';
+                  e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.4)';
+                }}
               >
                 <Image
                   src={card.imageLarge}
@@ -65,11 +91,13 @@ export default function GalleryPage() {
       {/* Card detail modal */}
       {selected && (
         <div
-          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(5, 5, 20, 0.8)', backdropFilter: 'blur(4px)' }}
           onClick={() => setSelected(null)}
         >
           <div
-            className="bg-white rounded-3xl p-5 max-w-xs w-full shadow-2xl"
+            className="rounded-3xl p-5 max-w-xs w-full card-glow"
+            style={{ background: '#111532', border: '1px solid rgba(157, 53, 255, 0.4)' }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="relative w-full aspect-[2/3] mb-4 rounded-2xl overflow-hidden">
@@ -81,8 +109,8 @@ export default function GalleryPage() {
                 sizes="288px"
               />
             </div>
-            <h2 className="text-xl font-black text-indigo-900 mb-1">{selected.name}</h2>
-            <p className="text-sm text-gray-500 mb-2">{selected.set}</p>
+            <h2 className="text-xl font-black mb-1" style={{ color: '#c8a8ff' }}>{selected.name}</h2>
+            <p className="text-sm mb-2" style={{ color: '#4a3a7a' }}>{selected.set}</p>
             {selected.types && (
               <div className="flex gap-2 flex-wrap mb-3">
                 {selected.types.map((t) => (
@@ -92,7 +120,12 @@ export default function GalleryPage() {
             )}
             <button
               onClick={() => setSelected(null)}
-              className="w-full bg-indigo-100 hover:bg-indigo-200 text-indigo-800 font-bold py-2 rounded-xl transition-colors"
+              className="w-full font-bold py-2 rounded-xl transition-all hover:scale-[1.02]"
+              style={{
+                background: 'rgba(157, 53, 255, 0.12)',
+                border: '1px solid rgba(157, 53, 255, 0.3)',
+                color: '#c8a8ff',
+              }}
             >
               Close
             </button>

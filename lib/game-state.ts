@@ -22,6 +22,7 @@ export interface GameState {
   totalGuessed: number; // cards in capturedCardIds
   score: number;
   currentStreak: number;
+  incorrectGuesses: number;
   capturedCardIds: string[];
   capturedCards: CapturedCard[];
   lifelines: Lifelines;
@@ -52,7 +53,10 @@ export function loadGameState(): GameState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState();
-    return JSON.parse(raw) as GameState;
+    const state = JSON.parse(raw) as GameState;
+    // Migrate: ensure new fields have defaults for existing save data
+    if (state.incorrectGuesses === undefined) state.incorrectGuesses = 0;
+    return state;
   } catch {
     return defaultState();
   }
@@ -63,6 +67,7 @@ function defaultState(): GameState {
     totalGuessed: 0,
     score: 0,
     currentStreak: 0,
+    incorrectGuesses: 0,
     capturedCardIds: [],
     capturedCards: [],
     lifelines: { ...DEFAULT_LIFELINES },
@@ -104,6 +109,7 @@ export function recordMiss(state: GameState): GameState {
   const newState: GameState = {
     ...state,
     currentStreak: 0,
+    incorrectGuesses: state.incorrectGuesses + 1,
   };
   saveGameState(newState);
   return newState;
