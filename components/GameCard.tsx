@@ -6,6 +6,7 @@ import Link from 'next/link';
 import {
   GameState,
   loadGameState,
+  resetGameState,
   addCapturedCard,
   recordMiss,
   useLifeline,
@@ -49,11 +50,12 @@ export default function GameCard() {
   const [hintText, setHintText] = useState<string | null>(null);
   const [showTypes, setShowTypes] = useState(false);
   const [showEvo, setShowEvo] = useState(false);
-  const [blurLevel, setBlurLevel] = useState<'blur-md' | 'blur-[2px]' | ''>('blur-md');
+  const [blurLevel, setBlurLevel] = useState<'blur-sm' | 'blur-[1px]' | ''>('blur-sm');
   const [secondChanceUsed, setSecondChanceUsed] = useState(false);
   const [hasSecondChanceActive, setHasSecondChanceActive] = useState(false);
   const [milestoneToShow, setMilestoneToShow] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   // Load state from localStorage on mount
   useEffect(() => {
@@ -68,7 +70,7 @@ export default function GameCard() {
     setHintText(null);
     setShowTypes(false);
     setShowEvo(false);
-    setBlurLevel('blur-md');
+    setBlurLevel('blur-sm');
     setSecondChanceUsed(false);
     setHasSecondChanceActive(false);
     setError(null);
@@ -167,7 +169,7 @@ export default function GameCard() {
         setShowTypes(true);
         break;
       case 'artistInsight':
-        setBlurLevel('blur-[2px]');
+        setBlurLevel('blur-[1px]');
         break;
       case 'evolutionChain':
         setShowEvo(true);
@@ -182,6 +184,13 @@ export default function GameCard() {
     const wasGrandChampion = milestoneToShow === TARGET;
     setMilestoneToShow(null);
     if (!wasGrandChampion) fetchRound();
+  };
+
+  const handleNewGame = () => {
+    const fresh = resetGameState();
+    setGameState(fresh);
+    setConfirmReset(false);
+    fetchRound();
   };
 
   if (!gameState) return null;
@@ -347,15 +356,44 @@ export default function GameCard() {
         />
       )}
 
-      {/* Gallery link */}
-      {gameState.capturedCards.length > 0 && (
-        <Link
-          href="/gallery"
-          className="text-center text-indigo-600 underline font-semibold text-sm"
-        >
-          View Gallery ({gameState.capturedCards.length} cards) →
-        </Link>
-      )}
+      {/* Bottom bar: gallery link + new game */}
+      <div className="flex items-center justify-between gap-3">
+        {gameState.capturedCards.length > 0 ? (
+          <Link
+            href="/gallery"
+            className="text-indigo-600 underline font-semibold text-sm"
+          >
+            Gallery ({gameState.capturedCards.length}) →
+          </Link>
+        ) : (
+          <span />
+        )}
+
+        {confirmReset ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-red-600">Reset everything?</span>
+            <button
+              onClick={handleNewGame}
+              className="bg-red-500 hover:bg-red-600 text-white font-bold text-xs py-1.5 px-3 rounded-full transition-colors"
+            >
+              Yes, reset
+            </button>
+            <button
+              onClick={() => setConfirmReset(false)}
+              className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-xs py-1.5 px-3 rounded-full transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmReset(true)}
+            className="text-gray-400 hover:text-red-500 font-semibold text-xs transition-colors"
+          >
+            New Game
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -39,12 +39,12 @@ export const MILESTONES: Record<number, { title: string; subtitle: string; refil
 };
 
 export const DEFAULT_LIFELINES: Lifelines = {
-  fiftyFifty: 1,
-  hint: 1,
-  typeReveal: 1,
-  artistInsight: 1,
-  evolutionChain: 1,
-  secondChance: 1,
+  fiftyFifty: 5,
+  hint: 5,
+  typeReveal: 5,
+  artistInsight: 5,
+  evolutionChain: 5,
+  secondChance: 5,
 };
 
 export function loadGameState(): GameState {

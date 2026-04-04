@@ -43,8 +43,14 @@ export default function LifelineBar({ lifelines, activeLifelines, onUse }: Props
             >
               <span className="text-lg">{icon}</span>
               <span className="leading-tight mt-0.5">{label}</span>
-              {!isUsed && !isActive && (
-                <span className="text-[10px] bg-indigo-100 text-indigo-600 rounded-full px-1 mt-0.5">
+              {isUsed ? (
+                <span className="text-[10px] text-gray-400 mt-0.5">used up</span>
+              ) : (
+                <span className={`text-[10px] rounded-full px-1 mt-0.5 ${
+                  isActive
+                    ? 'bg-green-200 text-green-700'
+                    : 'bg-indigo-100 text-indigo-600'
+                }`}>
                   ×{count}
                 </span>
               )}
