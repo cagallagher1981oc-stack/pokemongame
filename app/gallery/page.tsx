@@ -10,6 +10,8 @@ import {
   TARGET,
   toggleFavorite,
   releaseCard,
+  restoreCard,
+  emptyRecycleBin,
 } from '@/lib/game-state';
 import TypeBadge from '@/components/TypeBadge';
 
@@ -18,12 +20,15 @@ export default function GalleryPage() {
   const [selected, setSelected] = useState<CapturedCard | null>(null);
   const [confirmReleaseId, setConfirmReleaseId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [showBin, setShowBin] = useState(false);
+  const [confirmEmptyBin, setConfirmEmptyBin] = useState(false);
 
   useEffect(() => {
     setGameState(loadGameState());
   }, []);
 
-  // Favorites float to the top; rest stay chronological
+  // Favorites float to top; rest stay chronological
   const sortedCards = useMemo(() => {
     if (!gameState) return [];
     return [
@@ -37,10 +42,8 @@ export default function GalleryPage() {
     if (!gameState) return;
     const newState = toggleFavorite(gameState, cardId);
     setGameState(newState);
-    // Keep detail modal in sync
     if (selected?.id === cardId) {
-      const updated = newState.capturedCards.find((c) => c.id === cardId);
-      setSelected(updated ?? null);
+      setSelected(newState.capturedCards.find((c) => c.id === cardId) ?? null);
     }
   };
 
@@ -55,7 +58,6 @@ export default function GalleryPage() {
     setConfirmReleaseId(null);
     if (selected?.id === idToDelete) setSelected(null);
 
-    // Animate out, then remove from state
     setDeletingId(idToDelete);
     setTimeout(() => {
       setGameState((prev) => (prev ? releaseCard(prev, idToDelete) : prev));
@@ -63,7 +65,24 @@ export default function GalleryPage() {
     }, 400);
   };
 
+  const handleRestore = (cardId: string) => {
+    if (!gameState) return;
+    setRestoringId(cardId);
+    setTimeout(() => {
+      setGameState((prev) => (prev ? restoreCard(prev, cardId) : prev));
+      setRestoringId(null);
+    }, 400);
+  };
+
+  const handleEmptyBin = () => {
+    if (!gameState) return;
+    setGameState(emptyRecycleBin(gameState));
+    setConfirmEmptyBin(false);
+  };
+
   if (!gameState) return null;
+
+  const binCount = gameState.recycledCards.length;
 
   return (
     <main
@@ -84,19 +103,147 @@ export default function GalleryPage() {
               {gameState.totalGuessed} / {TARGET} cards captured
             </p>
           </div>
-          <Link
-            href="/"
-            className="font-bold py-2 px-5 rounded-full transition-all text-sm hover:scale-105"
-            style={{
-              background: 'linear-gradient(135deg, #7b2fff, #c86fff)',
-              color: '#fff',
-              boxShadow: '0 0 14px rgba(157, 53, 255, 0.4)',
-            }}
-          >
-            ← Play
-          </Link>
+          <div className="flex items-center gap-3">
+            {/* Recycle bin toggle */}
+            <button
+              onClick={() => setShowBin((v) => !v)}
+              className="relative font-bold py-2 px-4 rounded-full text-sm transition-all hover:scale-105"
+              style={{
+                background: showBin
+                  ? 'rgba(255, 53, 110, 0.2)'
+                  : 'rgba(255,255,255,0.06)',
+                border: showBin
+                  ? '1px solid rgba(255, 53, 110, 0.5)'
+                  : '1px solid rgba(255,255,255,0.12)',
+                color: showBin ? '#ff7a9a' : '#7a5aaa',
+              }}
+            >
+              🗑️ Bin
+              {binCount > 0 && (
+                <span
+                  className="absolute -top-1.5 -right-1.5 text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center"
+                  style={{ background: '#ff356e', color: '#fff' }}
+                >
+                  {binCount}
+                </span>
+              )}
+            </button>
+            <Link
+              href="/"
+              className="font-bold py-2 px-5 rounded-full transition-all text-sm hover:scale-105"
+              style={{
+                background: 'linear-gradient(135deg, #7b2fff, #c86fff)',
+                color: '#fff',
+                boxShadow: '0 0 14px rgba(157, 53, 255, 0.4)',
+              }}
+            >
+              ← Play
+            </Link>
+          </div>
         </header>
 
+        {/* ── Recycle Bin panel ── */}
+        {showBin && (
+          <div
+            className="rounded-2xl p-4 mb-6"
+            style={{
+              background: 'rgba(255, 53, 110, 0.06)',
+              border: '1px solid rgba(255, 53, 110, 0.25)',
+            }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-bold text-sm" style={{ color: '#ff7a9a' }}>
+                🗑️ Recycle Bin
+                {binCount > 0 && (
+                  <span className="ml-2 font-normal" style={{ color: '#7a5aaa' }}>
+                    — {binCount} card{binCount !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </p>
+              {binCount > 0 && (
+                confirmEmptyBin ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs" style={{ color: '#ff7a9a' }}>Permanently delete all?</span>
+                    <button
+                      onClick={handleEmptyBin}
+                      className="text-xs font-bold py-1 px-3 rounded-full transition-all hover:scale-105"
+                      style={{ background: 'rgba(255,53,110,0.25)', border: '1px solid #ff356e', color: '#ff7a9a' }}
+                    >
+                      Yes, empty
+                    </button>
+                    <button
+                      onClick={() => setConfirmEmptyBin(false)}
+                      className="text-xs font-bold py-1 px-3 rounded-full transition-all hover:scale-105"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#7a5aaa' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmEmptyBin(true)}
+                    className="text-xs font-bold py-1 px-3 rounded-full transition-all hover:scale-105"
+                    style={{ background: 'rgba(255,53,110,0.12)', border: '1px solid rgba(255,53,110,0.3)', color: '#ff7a9a' }}
+                  >
+                    Empty Bin
+                  </button>
+                )
+              )}
+            </div>
+
+            {binCount === 0 ? (
+              <p className="text-sm text-center py-4" style={{ color: '#4a3a7a' }}>
+                Bin is empty — released cards will appear here.
+              </p>
+            ) : (
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                {gameState.recycledCards.map((card) => {
+                  const isRestoring = restoringId === card.id;
+                  return (
+                    <div
+                      key={card.id}
+                      className={`relative group aspect-[2/3] rounded-xl overflow-hidden ${
+                        isRestoring ? 'card-restoring' : ''
+                      }`}
+                      style={{
+                        border: '1px solid rgba(255, 53, 110, 0.2)',
+                        background: '#111532',
+                        opacity: isRestoring ? 1 : 0.65,
+                        filter: 'grayscale(40%)',
+                      }}
+                    >
+                      <Image
+                        src={card.imageLarge}
+                        alt={card.name}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 640px) 33vw, 12vw"
+                      />
+                      {/* Restore button on hover */}
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none group-hover:pointer-events-auto"
+                        style={{ background: 'rgba(10,8,30,0.6)' }}
+                      >
+                        <button
+                          onClick={() => handleRestore(card.id)}
+                          className="font-bold text-xs py-1.5 px-3 rounded-full transition-all hover:scale-110"
+                          style={{
+                            background: 'rgba(57, 235, 140, 0.2)',
+                            border: '1px solid #39eb8c',
+                            color: '#39eb8c',
+                          }}
+                        >
+                          ↩ Restore
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Main collection grid ── */}
         {sortedCards.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">🎴</div>
@@ -138,7 +285,6 @@ export default function GalleryPage() {
                     sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 16vw"
                   />
 
-                  {/* Favorite glow overlay */}
                   {isFav && (
                     <div
                       className="absolute inset-0 pointer-events-none rounded-xl favorited-glow"
@@ -146,27 +292,21 @@ export default function GalleryPage() {
                     />
                   )}
 
-                  {/* Action buttons — visible on hover */}
+                  {/* Action buttons on hover */}
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                    {/* Heart */}
                     <button
                       onClick={(e) => handleToggleFavorite(e, card.id)}
                       className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full flex items-center justify-center text-base transition-all hover:scale-125 active:scale-95"
                       style={{
-                        background: isFav
-                          ? 'rgba(255, 80, 120, 0.85)'
-                          : 'rgba(20, 15, 40, 0.75)',
+                        background: isFav ? 'rgba(255, 80, 120, 0.85)' : 'rgba(20, 15, 40, 0.75)',
                         backdropFilter: 'blur(4px)',
-                        border: isFav
-                          ? '1px solid rgba(255, 120, 150, 0.8)'
-                          : '1px solid rgba(255,255,255,0.15)',
+                        border: isFav ? '1px solid rgba(255, 120, 150, 0.8)' : '1px solid rgba(255,255,255,0.15)',
                       }}
                       title={isFav ? 'Unfavorite' : 'Favorite'}
                     >
                       {isFav ? '❤️' : '🤍'}
                     </button>
 
-                    {/* Trash */}
                     <button
                       onClick={(e) => handleRequestRelease(e, card.id)}
                       className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all hover:scale-125 active:scale-95"
@@ -175,13 +315,12 @@ export default function GalleryPage() {
                         backdropFilter: 'blur(4px)',
                         border: '1px solid rgba(255,255,255,0.15)',
                       }}
-                      title="Release Pokémon"
+                      title="Move to recycle bin"
                     >
                       🗑️
                     </button>
                   </div>
 
-                  {/* Favorite badge (always visible when favorited) */}
                   {isFav && (
                     <div className="absolute top-1.5 left-1.5 text-sm leading-none pointer-events-none">
                       ❤️
@@ -206,33 +345,25 @@ export default function GalleryPage() {
             style={{ background: '#111532', border: '1px solid rgba(255, 53, 110, 0.4)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-4xl mb-3">🌿</div>
+            <div className="text-4xl mb-3">🗑️</div>
             <h2 className="text-lg font-black mb-2" style={{ color: '#c8a8ff' }}>
-              Release this Pokémon?
+              Move to Recycle Bin?
             </h2>
             <p className="text-sm mb-5" style={{ color: '#7a5aaa' }}>
-              Are you sure you want to release this Pokémon back into the wild?
+              You can restore this card from the bin at any time.
             </p>
             <div className="flex gap-3 justify-center">
               <button
                 onClick={handleConfirmRelease}
                 className="font-bold py-2 px-5 rounded-full transition-all hover:scale-105"
-                style={{
-                  background: 'rgba(255, 53, 110, 0.2)',
-                  border: '1px solid #ff356e',
-                  color: '#ff7a9a',
-                }}
+                style={{ background: 'rgba(255, 53, 110, 0.2)', border: '1px solid #ff356e', color: '#ff7a9a' }}
               >
-                Release 👋
+                Move to Bin
               </button>
               <button
                 onClick={() => setConfirmReleaseId(null)}
                 className="font-bold py-2 px-5 rounded-full transition-all hover:scale-105"
-                style={{
-                  background: 'rgba(157, 53, 255, 0.15)',
-                  border: '1px solid rgba(157, 53, 255, 0.4)',
-                  color: '#c8a8ff',
-                }}
+                style={{ background: 'rgba(157, 53, 255, 0.15)', border: '1px solid rgba(157, 53, 255, 0.4)', color: '#c8a8ff' }}
               >
                 Keep
               </button>
@@ -254,19 +385,10 @@ export default function GalleryPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="relative w-full aspect-[2/3] mb-4 rounded-2xl overflow-hidden">
-              <Image
-                src={selected.imageLarge}
-                alt={selected.name}
-                fill
-                className="object-contain"
-                sizes="288px"
-              />
+              <Image src={selected.imageLarge} alt={selected.name} fill className="object-contain" sizes="288px" />
             </div>
             <div className="flex items-start justify-between mb-1">
-              <h2 className="text-xl font-black" style={{ color: '#c8a8ff' }}>
-                {selected.name}
-              </h2>
-              {/* Heart toggle in detail */}
+              <h2 className="text-xl font-black" style={{ color: '#c8a8ff' }}>{selected.name}</h2>
               <button
                 onClick={(e) => handleToggleFavorite(e, selected.id)}
                 className="text-xl transition-all hover:scale-125 ml-2"
@@ -278,34 +400,21 @@ export default function GalleryPage() {
             <p className="text-sm mb-2" style={{ color: '#4a3a7a' }}>{selected.set}</p>
             {selected.types && (
               <div className="flex gap-2 flex-wrap mb-3">
-                {selected.types.map((t) => (
-                  <TypeBadge key={t} type={t} />
-                ))}
+                {selected.types.map((t) => <TypeBadge key={t} type={t} />)}
               </div>
             )}
             <div className="flex gap-2">
               <button
-                onClick={() => {
-                  setSelected(null);
-                  setConfirmReleaseId(selected.id);
-                }}
+                onClick={() => { setSelected(null); setConfirmReleaseId(selected.id); }}
                 className="flex-1 font-bold py-2 rounded-xl transition-all hover:scale-[1.02]"
-                style={{
-                  background: 'rgba(255, 53, 110, 0.1)',
-                  border: '1px solid rgba(255, 53, 110, 0.3)',
-                  color: '#ff7a9a',
-                }}
+                style={{ background: 'rgba(255, 53, 110, 0.1)', border: '1px solid rgba(255, 53, 110, 0.3)', color: '#ff7a9a' }}
               >
-                🗑️ Release
+                🗑️ Bin
               </button>
               <button
                 onClick={() => setSelected(null)}
                 className="flex-1 font-bold py-2 rounded-xl transition-all hover:scale-[1.02]"
-                style={{
-                  background: 'rgba(157, 53, 255, 0.12)',
-                  border: '1px solid rgba(157, 53, 255, 0.3)',
-                  color: '#c8a8ff',
-                }}
+                style={{ background: 'rgba(157, 53, 255, 0.12)', border: '1px solid rgba(157, 53, 255, 0.3)', color: '#c8a8ff' }}
               >
                 Close
               </button>

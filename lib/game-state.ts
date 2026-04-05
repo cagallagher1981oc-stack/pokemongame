@@ -26,6 +26,7 @@ export interface GameState {
   incorrectGuesses: number;
   capturedCardIds: string[];
   capturedCards: CapturedCard[];
+  recycledCards: CapturedCard[]; // soft-deleted cards awaiting permanent removal
   lifelines: Lifelines;
 }
 
@@ -57,6 +58,7 @@ export function loadGameState(): GameState {
     const state = JSON.parse(raw) as GameState;
     // Migrate: ensure new fields have defaults for existing save data
     if (state.incorrectGuesses === undefined) state.incorrectGuesses = 0;
+    if (state.recycledCards === undefined) state.recycledCards = [];
     return state;
   } catch {
     return defaultState();
@@ -71,6 +73,7 @@ function defaultState(): GameState {
     incorrectGuesses: 0,
     capturedCardIds: [],
     capturedCards: [],
+    recycledCards: [],
     lifelines: { ...DEFAULT_LIFELINES },
   };
 }
@@ -86,12 +89,13 @@ export function resetGameState(): GameState {
   return state;
 }
 
-/** Reset stats and lifelines but keep the captured card collection. */
+/** Reset stats and lifelines but keep the captured card collection and recycle bin. */
 export function softResetGameState(current: GameState): GameState {
   const state: GameState = {
     ...defaultState(),
     capturedCardIds: current.capturedCardIds,
     capturedCards: current.capturedCards,
+    recycledCards: current.recycledCards,
   };
   saveGameState(state);
   return state;
@@ -106,6 +110,8 @@ export function addCapturedCard(state: GameState, card: CapturedCard): GameState
     currentStreak: state.currentStreak + 1,
     capturedCardIds: [...state.capturedCardIds, card.id],
     capturedCards: [...state.capturedCards, card],
+    // Remove from recycle bin if it was there (re-captured after recycling)
+    recycledCards: state.recycledCards.filter((c) => c.id !== card.id),
   };
 
   // Check milestone 50 — refill all lifelines
@@ -152,13 +158,38 @@ export function toggleFavorite(state: GameState, cardId: string): GameState {
   return newState;
 }
 
-/** Release (delete) a card from the collection. Does not affect score. */
+/** Move a card to the recycle bin. Does not affect score. */
 export function releaseCard(state: GameState, cardId: string): GameState {
+  const card = state.capturedCards.find((c) => c.id === cardId);
   const newState: GameState = {
     ...state,
     capturedCardIds: state.capturedCardIds.filter((id) => id !== cardId),
     capturedCards: state.capturedCards.filter((c) => c.id !== cardId),
+    recycledCards: card
+      ? [...state.recycledCards, { ...card, isFavorite: false }]
+      : state.recycledCards,
   };
+  saveGameState(newState);
+  return newState;
+}
+
+/** Restore a card from the recycle bin back into the collection. */
+export function restoreCard(state: GameState, cardId: string): GameState {
+  const card = state.recycledCards.find((c) => c.id === cardId);
+  if (!card) return state;
+  const newState: GameState = {
+    ...state,
+    capturedCardIds: [...state.capturedCardIds, card.id],
+    capturedCards: [...state.capturedCards, card],
+    recycledCards: state.recycledCards.filter((c) => c.id !== cardId),
+  };
+  saveGameState(newState);
+  return newState;
+}
+
+/** Permanently delete all cards in the recycle bin. */
+export function emptyRecycleBin(state: GameState): GameState {
+  const newState: GameState = { ...state, recycledCards: [] };
   saveGameState(newState);
   return newState;
 }
