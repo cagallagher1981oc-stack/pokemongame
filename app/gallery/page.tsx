@@ -200,17 +200,20 @@ export default function GalleryPage() {
                 {gameState.recycledCards.map((card) => {
                   const isRestoring = restoringId === card.id;
                   return (
-                    <div
+                    <button
                       key={card.id}
-                      className={`relative group aspect-[2/3] rounded-xl overflow-hidden ${
-                        isRestoring ? 'card-restoring' : ''
+                      onClick={() => handleRestore(card.id)}
+                      disabled={isRestoring}
+                      className={`relative aspect-[2/3] rounded-xl overflow-hidden transition-all active:scale-95 ${
+                        isRestoring ? 'card-restoring' : 'hover:scale-105'
                       }`}
                       style={{
-                        border: '1px solid rgba(255, 53, 110, 0.2)',
+                        border: '1px solid rgba(57, 235, 140, 0.3)',
                         background: '#111532',
-                        opacity: isRestoring ? 1 : 0.65,
+                        opacity: isRestoring ? 1 : 0.7,
                         filter: 'grayscale(40%)',
                       }}
+                      title={`Restore ${card.name}`}
                     >
                       <Image
                         src={card.imageLarge}
@@ -219,23 +222,19 @@ export default function GalleryPage() {
                         className="object-cover"
                         sizes="(max-width: 640px) 33vw, 12vw"
                       />
-                      {/* Restore button on hover */}
-                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none group-hover:pointer-events-auto"
-                        style={{ background: 'rgba(10,8,30,0.6)' }}
+                      {/* Always-visible restore label at bottom */}
+                      <div
+                        className="absolute bottom-0 inset-x-0 flex items-center justify-center py-1.5"
+                        style={{ background: 'rgba(10,8,30,0.75)' }}
                       >
-                        <button
-                          onClick={() => handleRestore(card.id)}
-                          className="font-bold text-xs py-1.5 px-3 rounded-full transition-all hover:scale-110"
-                          style={{
-                            background: 'rgba(57, 235, 140, 0.2)',
-                            border: '1px solid #39eb8c',
-                            color: '#39eb8c',
-                          }}
+                        <span
+                          className="text-[10px] font-black tracking-wide"
+                          style={{ color: '#39eb8c' }}
                         >
-                          ↩ Restore
-                        </button>
+                          ↩ RESTORE
+                        </span>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
