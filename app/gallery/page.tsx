@@ -1,21 +1,69 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { loadGameState, CapturedCard, TARGET } from '@/lib/game-state';
+import {
+  loadGameState,
+  GameState,
+  CapturedCard,
+  TARGET,
+  toggleFavorite,
+  releaseCard,
+} from '@/lib/game-state';
 import TypeBadge from '@/components/TypeBadge';
 
 export default function GalleryPage() {
-  const [cards, setCards] = useState<CapturedCard[]>([]);
-  const [total, setTotal] = useState(0);
+  const [gameState, setGameState] = useState<GameState | null>(null);
   const [selected, setSelected] = useState<CapturedCard | null>(null);
+  const [confirmReleaseId, setConfirmReleaseId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    const state = loadGameState();
-    setCards(state.capturedCards);
-    setTotal(state.totalGuessed);
+    setGameState(loadGameState());
   }, []);
+
+  // Favorites float to the top; rest stay chronological
+  const sortedCards = useMemo(() => {
+    if (!gameState) return [];
+    return [
+      ...gameState.capturedCards.filter((c) => c.isFavorite),
+      ...gameState.capturedCards.filter((c) => !c.isFavorite),
+    ];
+  }, [gameState]);
+
+  const handleToggleFavorite = (e: React.MouseEvent, cardId: string) => {
+    e.stopPropagation();
+    if (!gameState) return;
+    const newState = toggleFavorite(gameState, cardId);
+    setGameState(newState);
+    // Keep detail modal in sync
+    if (selected?.id === cardId) {
+      const updated = newState.capturedCards.find((c) => c.id === cardId);
+      setSelected(updated ?? null);
+    }
+  };
+
+  const handleRequestRelease = (e: React.MouseEvent, cardId: string) => {
+    e.stopPropagation();
+    setConfirmReleaseId(cardId);
+  };
+
+  const handleConfirmRelease = () => {
+    if (!gameState || !confirmReleaseId) return;
+    const idToDelete = confirmReleaseId;
+    setConfirmReleaseId(null);
+    if (selected?.id === idToDelete) setSelected(null);
+
+    // Animate out, then remove from state
+    setDeletingId(idToDelete);
+    setTimeout(() => {
+      setGameState((prev) => (prev ? releaseCard(prev, idToDelete) : prev));
+      setDeletingId(null);
+    }, 400);
+  };
+
+  if (!gameState) return null;
 
   return (
     <main
@@ -23,6 +71,7 @@ export default function GalleryPage() {
       style={{ background: 'linear-gradient(160deg, #0a0e2a 0%, #12103a 55%, #1d1448 100%)' }}
     >
       <div className="max-w-4xl mx-auto">
+        {/* Header */}
         <header className="flex items-center justify-between mb-6">
           <div>
             <h1
@@ -32,7 +81,7 @@ export default function GalleryPage() {
               Oliver&apos;s Collection
             </h1>
             <p className="font-semibold" style={{ color: '#7a5aaa' }}>
-              {total} / {TARGET} cards captured
+              {gameState.totalGuessed} / {TARGET} cards captured
             </p>
           </div>
           <Link
@@ -48,45 +97,149 @@ export default function GalleryPage() {
           </Link>
         </header>
 
-        {cards.length === 0 ? (
+        {sortedCards.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-5xl mb-4">🎴</div>
-            <p className="font-bold text-xl" style={{ color: '#c8a8ff' }}>No cards captured yet!</p>
-            <p className="mt-1" style={{ color: '#7a5aaa' }}>Head back and start guessing.</p>
+            <p className="font-bold text-xl" style={{ color: '#c8a8ff' }}>
+              No cards captured yet!
+            </p>
+            <p className="mt-1" style={{ color: '#7a5aaa' }}>
+              Head back and start guessing.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-            {cards.map((card) => (
-              <button
-                key={card.id}
-                onClick={() => setSelected(card)}
-                className="relative aspect-[2/3] rounded-xl overflow-hidden transition-all hover:scale-105"
-                style={{
-                  border: '1px solid rgba(157, 53, 255, 0.25)',
-                  background: '#111532',
-                  boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.border = '1px solid rgba(157, 53, 255, 0.7)';
-                  e.currentTarget.style.boxShadow = '0 0 16px rgba(157, 53, 255, 0.35)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.border = '1px solid rgba(157, 53, 255, 0.25)';
-                  e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.4)';
-                }}
-              >
-                <Image
-                  src={card.imageLarge}
-                  alt={card.name}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 16vw"
-                />
-              </button>
-            ))}
+            {sortedCards.map((card) => {
+              const isDeleting = deletingId === card.id;
+              const isFav = card.isFavorite;
+
+              return (
+                <div
+                  key={card.id}
+                  className={`relative group aspect-[2/3] rounded-xl overflow-hidden transition-all cursor-pointer ${
+                    isDeleting ? 'card-deleting' : 'hover:scale-105'
+                  }`}
+                  style={{
+                    border: isFav
+                      ? '1px solid rgba(255, 80, 120, 0.6)'
+                      : '1px solid rgba(157, 53, 255, 0.25)',
+                    background: '#111532',
+                    boxShadow: isFav
+                      ? '0 0 12px 3px rgba(255, 80, 120, 0.35)'
+                      : '0 2px 12px rgba(0,0,0,0.4)',
+                  }}
+                  onClick={() => setSelected(card)}
+                >
+                  <Image
+                    src={card.imageLarge}
+                    alt={card.name}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 16vw"
+                  />
+
+                  {/* Favorite glow overlay */}
+                  {isFav && (
+                    <div
+                      className="absolute inset-0 pointer-events-none rounded-xl favorited-glow"
+                      style={{ border: '2px solid rgba(255, 80, 120, 0.5)' }}
+                    />
+                  )}
+
+                  {/* Action buttons — visible on hover */}
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                    {/* Heart */}
+                    <button
+                      onClick={(e) => handleToggleFavorite(e, card.id)}
+                      className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full flex items-center justify-center text-base transition-all hover:scale-125 active:scale-95"
+                      style={{
+                        background: isFav
+                          ? 'rgba(255, 80, 120, 0.85)'
+                          : 'rgba(20, 15, 40, 0.75)',
+                        backdropFilter: 'blur(4px)',
+                        border: isFav
+                          ? '1px solid rgba(255, 120, 150, 0.8)'
+                          : '1px solid rgba(255,255,255,0.15)',
+                      }}
+                      title={isFav ? 'Unfavorite' : 'Favorite'}
+                    >
+                      {isFav ? '❤️' : '🤍'}
+                    </button>
+
+                    {/* Trash */}
+                    <button
+                      onClick={(e) => handleRequestRelease(e, card.id)}
+                      className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all hover:scale-125 active:scale-95"
+                      style={{
+                        background: 'rgba(20, 15, 40, 0.75)',
+                        backdropFilter: 'blur(4px)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                      }}
+                      title="Release Pokémon"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+
+                  {/* Favorite badge (always visible when favorited) */}
+                  {isFav && (
+                    <div className="absolute top-1.5 left-1.5 text-sm leading-none pointer-events-none">
+                      ❤️
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* Release confirmation modal */}
+      {confirmReleaseId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(5, 5, 20, 0.8)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setConfirmReleaseId(null)}
+        >
+          <div
+            className="rounded-3xl p-6 max-w-xs w-full text-center card-glow"
+            style={{ background: '#111532', border: '1px solid rgba(255, 53, 110, 0.4)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-4xl mb-3">🌿</div>
+            <h2 className="text-lg font-black mb-2" style={{ color: '#c8a8ff' }}>
+              Release this Pokémon?
+            </h2>
+            <p className="text-sm mb-5" style={{ color: '#7a5aaa' }}>
+              Are you sure you want to release this Pokémon back into the wild?
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={handleConfirmRelease}
+                className="font-bold py-2 px-5 rounded-full transition-all hover:scale-105"
+                style={{
+                  background: 'rgba(255, 53, 110, 0.2)',
+                  border: '1px solid #ff356e',
+                  color: '#ff7a9a',
+                }}
+              >
+                Release 👋
+              </button>
+              <button
+                onClick={() => setConfirmReleaseId(null)}
+                className="font-bold py-2 px-5 rounded-full transition-all hover:scale-105"
+                style={{
+                  background: 'rgba(157, 53, 255, 0.15)',
+                  border: '1px solid rgba(157, 53, 255, 0.4)',
+                  color: '#c8a8ff',
+                }}
+              >
+                Keep
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Card detail modal */}
       {selected && (
@@ -109,7 +262,19 @@ export default function GalleryPage() {
                 sizes="288px"
               />
             </div>
-            <h2 className="text-xl font-black mb-1" style={{ color: '#c8a8ff' }}>{selected.name}</h2>
+            <div className="flex items-start justify-between mb-1">
+              <h2 className="text-xl font-black" style={{ color: '#c8a8ff' }}>
+                {selected.name}
+              </h2>
+              {/* Heart toggle in detail */}
+              <button
+                onClick={(e) => handleToggleFavorite(e, selected.id)}
+                className="text-xl transition-all hover:scale-125 ml-2"
+                title={selected.isFavorite ? 'Unfavorite' : 'Favorite'}
+              >
+                {selected.isFavorite ? '❤️' : '🤍'}
+              </button>
+            </div>
             <p className="text-sm mb-2" style={{ color: '#4a3a7a' }}>{selected.set}</p>
             {selected.types && (
               <div className="flex gap-2 flex-wrap mb-3">
@@ -118,17 +283,33 @@ export default function GalleryPage() {
                 ))}
               </div>
             )}
-            <button
-              onClick={() => setSelected(null)}
-              className="w-full font-bold py-2 rounded-xl transition-all hover:scale-[1.02]"
-              style={{
-                background: 'rgba(157, 53, 255, 0.12)',
-                border: '1px solid rgba(157, 53, 255, 0.3)',
-                color: '#c8a8ff',
-              }}
-            >
-              Close
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setSelected(null);
+                  setConfirmReleaseId(selected.id);
+                }}
+                className="flex-1 font-bold py-2 rounded-xl transition-all hover:scale-[1.02]"
+                style={{
+                  background: 'rgba(255, 53, 110, 0.1)',
+                  border: '1px solid rgba(255, 53, 110, 0.3)',
+                  color: '#ff7a9a',
+                }}
+              >
+                🗑️ Release
+              </button>
+              <button
+                onClick={() => setSelected(null)}
+                className="flex-1 font-bold py-2 rounded-xl transition-all hover:scale-[1.02]"
+                style={{
+                  background: 'rgba(157, 53, 255, 0.12)',
+                  border: '1px solid rgba(157, 53, 255, 0.3)',
+                  color: '#c8a8ff',
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

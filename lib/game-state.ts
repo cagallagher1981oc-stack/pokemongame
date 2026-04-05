@@ -16,6 +16,7 @@ export interface CapturedCard {
   imageLarge: string;
   types?: string[];
   set: string;
+  isFavorite?: boolean;
 }
 
 export interface GameState {
@@ -123,6 +124,31 @@ export function useLifeline(state: GameState, lifeline: keyof Lifelines): GameSt
       ...state.lifelines,
       [lifeline]: state.lifelines[lifeline] - 1,
     },
+  };
+  saveGameState(newState);
+  return newState;
+}
+
+/** Toggle isFavorite on a captured card. */
+export function toggleFavorite(state: GameState, cardId: string): GameState {
+  const newState: GameState = {
+    ...state,
+    capturedCards: state.capturedCards.map((c) =>
+      c.id === cardId ? { ...c, isFavorite: !c.isFavorite } : c
+    ),
+  };
+  saveGameState(newState);
+  return newState;
+}
+
+/** Release (delete) a card from the collection. */
+export function releaseCard(state: GameState, cardId: string): GameState {
+  const newState: GameState = {
+    ...state,
+    totalGuessed: Math.max(0, state.totalGuessed - 1),
+    score: Math.max(0, state.score - 1),
+    capturedCardIds: state.capturedCardIds.filter((id) => id !== cardId),
+    capturedCards: state.capturedCards.filter((c) => c.id !== cardId),
   };
   saveGameState(newState);
   return newState;

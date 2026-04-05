@@ -12,7 +12,7 @@ const LIFELINE_META: { key: keyof Lifelines; label: string; icon: string; desc: 
   { key: 'fiftyFifty', label: '50/50', icon: '✂️', desc: 'Remove 2 wrong answers' },
   { key: 'hint', label: 'Hint', icon: '💡', desc: 'Show a clue' },
   { key: 'typeReveal', label: 'Type', icon: '🔮', desc: "Reveal Pokémon's type" },
-  { key: 'artistInsight', label: 'Unblur', icon: '👁️', desc: 'Reduce card blur' },
+  { key: 'artistInsight', label: 'Unblur', icon: '👁️', desc: 'Reveal bottom half of card' },
   { key: 'evolutionChain', label: 'Evo', icon: '🧬', desc: 'Show evolution info' },
   { key: 'secondChance', label: '2nd', icon: '🛡️', desc: 'One free miss' },
 ];

@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 import { fetchRandomDecadeCard, fetchDistractorNames, getDecadeSetIds } from '@/lib/pokemon-api';
 
+// Fallback pool used when the API can't supply enough unique distractor names
+const FALLBACK_NAMES = [
+  'Pikachu', 'Charizard', 'Eevee', 'Mewtwo', 'Gengar',
+  'Snorlax', 'Bulbasaur', 'Squirtle', 'Jigglypuff', 'Meowth',
+  'Lucario', 'Garchomp', 'Blaziken', 'Greninja', 'Sylveon',
+  'Umbreon', 'Espeon', 'Dragonite', 'Raichu', 'Blastoise',
+];
+
 export async function GET() {
   try {
     const card = await fetchRandomDecadeCard();
@@ -11,8 +19,17 @@ export async function GET() {
     const setIds = await getDecadeSetIds();
     const distractors = await fetchDistractorNames(card.name, setIds, 3);
 
-    // Build 4 options, shuffle them
-    const options = [card.name, ...distractors].sort(() => Math.random() - 0.5);
+    // Build exactly 4 unique options — pad with fallbacks if the API was sparse
+    const unique: string[] = [card.name];
+    for (const name of distractors) {
+      if (!unique.includes(name)) unique.push(name);
+    }
+    for (const fallback of FALLBACK_NAMES) {
+      if (unique.length >= 4) break;
+      if (!unique.includes(fallback)) unique.push(fallback);
+    }
+
+    const options = unique.slice(0, 4).sort(() => Math.random() - 0.5);
 
     return NextResponse.json({
       card: {

@@ -38,6 +38,7 @@ interface RoundData {
 }
 
 type GuessState = 'idle' | 'correct' | 'wrong' | 'revealed';
+type BlurLevel = 'high' | 'partial' | 'none';
 
 export default function GameCard() {
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -50,7 +51,7 @@ export default function GameCard() {
   const [hintText, setHintText] = useState<string | null>(null);
   const [showTypes, setShowTypes] = useState(false);
   const [showEvo, setShowEvo] = useState(false);
-  const [blurLevel, setBlurLevel] = useState<'high' | 'low' | 'none'>('high');
+  const [blurLevel, setBlurLevel] = useState<BlurLevel>('high');
   const [isRevealing, setIsRevealing] = useState(false);
   const [secondChanceUsed, setSecondChanceUsed] = useState(false);
   const [hasSecondChanceActive, setHasSecondChanceActive] = useState(false);
@@ -58,7 +59,6 @@ export default function GameCard() {
   const [error, setError] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
 
-  // Load state from localStorage on mount
   useEffect(() => {
     setGameState(loadGameState());
   }, []);
@@ -100,8 +100,8 @@ export default function GameCard() {
     setSelectedOption(option);
 
     if (option === round.card.name) {
-      // Correct! — trigger cinematic reveal
       setGuessState('correct');
+      setBlurLevel('none');
       setIsRevealing(true);
       setTimeout(() => setIsRevealing(false), 1000);
       fireCorrectConfetti();
@@ -116,14 +116,12 @@ export default function GameCard() {
       });
       setGameState(newState);
 
-      // Check for milestone
       const count = newState.totalGuessed;
       if (MILESTONES[count]) {
         fireMilestoneConfetti();
         setMilestoneToShow(count);
       }
     } else {
-      // Wrong
       if (hasSecondChanceActive && !secondChanceUsed) {
         setSecondChanceUsed(true);
         setSelectedOption(null);
@@ -144,6 +142,22 @@ export default function GameCard() {
   const handleLifeline = (key: keyof Lifelines) => {
     if (!round || !gameState) return;
 
+    // Smart Hint: check for content before consuming the charge
+    if (key === 'hint') {
+      const card = round.card;
+      const raw = card.flavorText || card.abilities?.[0]?.text;
+      if (!raw) {
+        setHintText('🔮 This Pokémon is too mysterious for a hint!');
+        return; // Do NOT mark active or decrement counter
+      }
+      const safeRegex = new RegExp(card.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      setHintText(raw.replace(safeRegex, '[REDACTED]'));
+      const newState = useLifeline(gameState, key);
+      setGameState(newState);
+      setActiveLifelines((prev) => new Set([...prev, key]));
+      return;
+    }
+
     const newState = useLifeline(gameState, key);
     setGameState(newState);
     setActiveLifelines((prev) => new Set([...prev, key]));
@@ -155,21 +169,11 @@ export default function GameCard() {
         setVisibleOptions((prev) => prev.filter((o) => !toRemove.includes(o)));
         break;
       }
-      case 'hint': {
-        const card = round.card;
-        const raw =
-          card.flavorText ||
-          card.abilities?.[0]?.text ||
-          'No hint available.';
-        const safeRegex = new RegExp(card.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-        setHintText(raw.replace(safeRegex, '[REDACTED]'));
-        break;
-      }
       case 'typeReveal':
         setShowTypes(true);
         break;
       case 'artistInsight':
-        setBlurLevel('low');
+        setBlurLevel('partial');
         break;
       case 'evolutionChain':
         setShowEvo(true);
@@ -226,15 +230,11 @@ export default function GameCard() {
     );
   }
 
-  // Image filter logic
-  let imageFilter = '';
-  if (guessState === 'correct') {
-    imageFilter = 'none';
-  } else if (blurLevel === 'high') {
-    imageFilter = 'blur(8px)';
-  } else if (blurLevel === 'low') {
-    imageFilter = 'blur(2px)';
-  }
+  // Image filter for the base (non-partial) layer
+  const baseFilter =
+    guessState === 'correct' ? 'none'
+    : blurLevel === 'high' ? 'blur(8px)'
+    : 'none';
 
   return (
     <div className="flex flex-col gap-4 w-full max-w-lg mx-auto">
@@ -242,7 +242,6 @@ export default function GameCard() {
         <MilestonePopup count={milestoneToShow} onClose={handleCloseMilestone} />
       )}
 
-      {/* Progress / metrics dashboard */}
       <ProgressBar
         captured={gameState.totalGuessed}
         score={gameState.score}
@@ -268,10 +267,7 @@ export default function GameCard() {
             <button
               onClick={fetchRound}
               className="font-bold py-2 px-6 rounded-full transition-all hover:scale-105"
-              style={{
-                background: 'linear-gradient(135deg, #7b2fff, #c86fff)',
-                color: '#fff',
-              }}
+              style={{ background: 'linear-gradient(135deg, #7b2fff, #c86fff)', color: '#fff' }}
             >
               Retry
             </button>
@@ -283,9 +279,9 @@ export default function GameCard() {
               className="relative flex justify-center p-6"
               style={{ background: 'linear-gradient(180deg, #0d1240 0%, #111532 100%)' }}
             >
-              {/* Energy ring behind card */}
+              {/* Energy ring */}
               <div
-                className="ring-pulse absolute inset-0 m-auto rounded-2xl pointer-events-none"
+                className="ring-pulse absolute pointer-events-none"
                 style={{
                   width: '200px',
                   height: '272px',
@@ -296,18 +292,53 @@ export default function GameCard() {
                 }}
               />
 
+              {/* Card image — handles all blur states */}
               <div className="relative w-48 h-64 z-10">
-                <Image
-                  src={round.card.images.small}
-                  alt={guessState === 'correct' ? round.card.name : 'Mystery Pokémon'}
-                  fill
-                  className={`object-contain rounded-xl transition-all duration-700 ${
-                    guessState === 'correct' && isRevealing ? 'shimmer-reveal' : ''
-                  }`}
-                  style={{ filter: imageFilter }}
-                  sizes="192px"
-                  priority
-                />
+                {blurLevel === 'partial' && guessState !== 'correct' ? (
+                  <>
+                    {/* Top half: fully blurred */}
+                    <Image
+                      src={round.card.images.small}
+                      alt="Mystery Pokémon"
+                      fill
+                      className="object-contain rounded-xl"
+                      style={{ filter: 'blur(8px)' }}
+                      sizes="192px"
+                      priority
+                    />
+                    {/* Bottom half: revealed via mask */}
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        WebkitMaskImage:
+                          'linear-gradient(to bottom, transparent 48%, black 54%)',
+                        maskImage:
+                          'linear-gradient(to bottom, transparent 48%, black 54%)',
+                      }}
+                    >
+                      <Image
+                        src={round.card.images.small}
+                        alt="Mystery Pokémon bottom"
+                        fill
+                        className="object-contain rounded-xl"
+                        style={{ filter: 'none' }}
+                        sizes="192px"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <Image
+                    src={round.card.images.small}
+                    alt={guessState === 'correct' ? round.card.name : 'Mystery Pokémon'}
+                    fill
+                    className={`object-contain rounded-xl transition-all duration-700 ${
+                      guessState === 'correct' && isRevealing ? 'shimmer-reveal' : ''
+                    }`}
+                    style={{ filter: baseFilter }}
+                    sizes="192px"
+                    priority
+                  />
+                )}
               </div>
 
               {/* Result badge */}
@@ -377,7 +408,7 @@ export default function GameCard() {
               </div>
             )}
 
-            {/* Answer options */}
+            {/* Answer options — fixed height for consistency */}
             <div className="p-4 grid grid-cols-2 gap-3">
               {round.options.map((option) => {
                 const isVisible = visibleOptions.includes(option);
@@ -422,10 +453,13 @@ export default function GameCard() {
                     key={option}
                     onClick={() => handleGuess(option)}
                     disabled={guessState !== 'idle'}
-                    className={`font-bold text-sm py-3 px-2 rounded-2xl transition-all text-center active:scale-95 ${
-                      guessState === 'idle' ? 'hover:border-purple-400 hover:bg-[#1a1d50]' : ''
+                    className={`font-bold text-sm px-2 rounded-2xl transition-all text-center
+                      flex items-center justify-center active:scale-95 ${
+                      guessState === 'idle'
+                        ? 'hover:border-purple-400 hover:bg-[#1a1d50]'
+                        : ''
                     } ${glowClass}`}
-                    style={inlineStyle}
+                    style={{ ...inlineStyle, minHeight: '56px' }}
                   >
                     {option}
                   </button>
@@ -460,7 +494,7 @@ export default function GameCard() {
         ) : null}
       </div>
 
-      {/* Trainer Tools / Lifeline bar */}
+      {/* Trainer Tools */}
       {guessState === 'idle' && round && !loading && (
         <LifelineBar
           lifelines={gameState.lifelines}
@@ -469,7 +503,7 @@ export default function GameCard() {
         />
       )}
 
-      {/* Footer: Gallery + New Game */}
+      {/* Footer */}
       <div className="flex items-center justify-between gap-3 px-1 pb-2">
         {gameState.capturedCards.length > 0 ? (
           <Link
@@ -491,14 +525,22 @@ export default function GameCard() {
             <button
               onClick={handleNewGame}
               className="font-bold text-xs py-1.5 px-3 rounded-full transition-all hover:scale-105"
-              style={{ background: 'rgba(255, 53, 110, 0.2)', border: '1px solid #ff356e', color: '#ff7a9a' }}
+              style={{
+                background: 'rgba(255, 53, 110, 0.2)',
+                border: '1px solid #ff356e',
+                color: '#ff7a9a',
+              }}
             >
               Yes, reset
             </button>
             <button
               onClick={() => setConfirmReset(false)}
               className="font-bold text-xs py-1.5 px-3 rounded-full transition-all hover:scale-105"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#7a5aaa' }}
+              style={{
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: '#7a5aaa',
+              }}
             >
               Cancel
             </button>
