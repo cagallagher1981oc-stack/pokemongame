@@ -152,12 +152,10 @@ export function toggleFavorite(state: GameState, cardId: string): GameState {
   return newState;
 }
 
-/** Release (delete) a card from the collection. */
+/** Release (delete) a card from the collection. Does not affect score. */
 export function releaseCard(state: GameState, cardId: string): GameState {
   const newState: GameState = {
     ...state,
-    totalGuessed: Math.max(0, state.totalGuessed - 1),
-    score: Math.max(0, state.score - 1),
     capturedCardIds: state.capturedCardIds.filter((id) => id !== cardId),
     capturedCards: state.capturedCards.filter((c) => c.id !== cardId),
   };

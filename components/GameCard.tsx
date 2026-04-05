@@ -215,12 +215,14 @@ export default function GameCard() {
         >
           Grand Champion!
         </h2>
-        <p className="text-lg mb-6" style={{ color: '#9d70cc' }}>
+        <p className="text-lg mb-4" style={{ color: '#9d70cc' }}>
           Oliver completed the Decade Defender challenge!
         </p>
+
+        {/* View collection */}
         <Link
           href="/gallery"
-          className="font-bold py-3 px-8 rounded-full text-lg transition-all hover:scale-105"
+          className="font-bold py-3 px-8 rounded-full text-lg transition-all hover:scale-105 mb-6"
           style={{
             background: 'linear-gradient(135deg, #7b2fff, #c86fff)',
             color: '#fff',
@@ -229,6 +231,37 @@ export default function GameCard() {
         >
           View Your Collection
         </Link>
+
+        {/* New game options */}
+        <p className="text-sm font-semibold mb-3" style={{ color: '#4a3a7a' }}>
+          — or start a new run —
+        </p>
+        <div className="flex gap-3 flex-wrap justify-center">
+          <button
+            onClick={() => handleNewGame(true)}
+            className="font-bold py-2 px-5 rounded-full text-sm transition-all hover:scale-105"
+            style={{
+              background: 'rgba(57, 235, 140, 0.15)',
+              border: '1px solid #39eb8c',
+              color: '#39eb8c',
+            }}
+            title="Reset score &amp; streak but keep your gallery"
+          >
+            Keep Gallery
+          </button>
+          <button
+            onClick={() => handleNewGame(false)}
+            className="font-bold py-2 px-5 rounded-full text-sm transition-all hover:scale-105"
+            style={{
+              background: 'rgba(255, 53, 110, 0.15)',
+              border: '1px solid #ff356e',
+              color: '#ff7a9a',
+            }}
+            title="Wipe everything and start fresh"
+          >
+            Reset All
+          </button>
+        </div>
       </div>
     );
   }
