@@ -7,6 +7,7 @@ import {
   GameState,
   loadGameState,
   resetGameState,
+  softResetGameState,
   addCapturedCard,
   recordMiss,
   useLifeline,
@@ -190,8 +191,10 @@ export default function GameCard() {
     if (!wasGrandChampion) fetchRound();
   };
 
-  const handleNewGame = () => {
-    const fresh = resetGameState();
+  const handleNewGame = (keepGallery: boolean) => {
+    const fresh = keepGallery
+      ? softResetGameState(gameState!)
+      : resetGameState();
     setGameState(fresh);
     setConfirmReset(false);
     fetchRound();
@@ -520,18 +523,31 @@ export default function GameCard() {
         )}
 
         {confirmReset ? (
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold" style={{ color: '#ff356e' }}>Reset everything?</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold" style={{ color: '#c8a8ff' }}>New game?</span>
             <button
-              onClick={handleNewGame}
+              onClick={() => handleNewGame(true)}
+              className="font-bold text-xs py-1.5 px-3 rounded-full transition-all hover:scale-105"
+              style={{
+                background: 'rgba(57, 235, 140, 0.15)',
+                border: '1px solid #39eb8c',
+                color: '#39eb8c',
+              }}
+              title="Reset score &amp; streak but keep your gallery"
+            >
+              Keep Gallery
+            </button>
+            <button
+              onClick={() => handleNewGame(false)}
               className="font-bold text-xs py-1.5 px-3 rounded-full transition-all hover:scale-105"
               style={{
                 background: 'rgba(255, 53, 110, 0.2)',
                 border: '1px solid #ff356e',
                 color: '#ff7a9a',
               }}
+              title="Wipe everything including gallery"
             >
-              Yes, reset
+              Reset All
             </button>
             <button
               onClick={() => setConfirmReset(false)}

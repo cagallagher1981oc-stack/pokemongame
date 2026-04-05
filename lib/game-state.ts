@@ -86,6 +86,17 @@ export function resetGameState(): GameState {
   return state;
 }
 
+/** Reset stats and lifelines but keep the captured card collection. */
+export function softResetGameState(current: GameState): GameState {
+  const state: GameState = {
+    ...defaultState(),
+    capturedCardIds: current.capturedCardIds,
+    capturedCards: current.capturedCards,
+  };
+  saveGameState(state);
+  return state;
+}
+
 export function addCapturedCard(state: GameState, card: CapturedCard): GameState {
   if (state.capturedCardIds.includes(card.id)) return state;
   const newState: GameState = {
