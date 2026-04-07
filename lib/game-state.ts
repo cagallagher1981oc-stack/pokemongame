@@ -49,7 +49,7 @@ export const DEFAULT_LIFELINES: Lifelines = {
   artistInsight: 5,
   evolutionChain: 5,
   secondChance: 5,
-  skip: 3,
+  skip: 5,
 };
 
 export function loadGameState(): GameState {
@@ -60,7 +60,7 @@ export function loadGameState(): GameState {
     const state = JSON.parse(raw) as GameState;
     if (state.incorrectGuesses === undefined) state.incorrectGuesses = 0;
     if (state.recycledCards === undefined) state.recycledCards = [];
-    if (state.lifelines.skip === undefined) state.lifelines.skip = 3;
+    if (state.lifelines.skip === undefined) state.lifelines.skip = 5;
     return state;
   } catch {
     return defaultState();

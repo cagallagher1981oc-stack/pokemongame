@@ -557,19 +557,18 @@ export default function GameCard() {
 
       {/* Footer */}
       <div className="flex items-center justify-between gap-3 px-1 pb-2">
-        {gameState.capturedCards.length > 0 ? (
-          <Link
-            href="/gallery"
-            className="font-semibold text-sm flex items-center gap-1 transition-colors hover:opacity-80"
-            style={{ color: '#9d35ff' }}
-          >
-            <span>🖼️</span>
-            <span>Gallery ({gameState.capturedCards.length})</span>
-            <span>→</span>
-          </Link>
-        ) : (
-          <span />
-        )}
+        <Link
+          href="/gallery"
+          className="font-semibold text-sm flex items-center gap-1 transition-colors hover:opacity-80"
+          style={{ color: '#9d35ff' }}
+        >
+          <span>🖼️</span>
+          <span>
+            Gallery
+            {gameState.capturedCards.length > 0 && ` (${gameState.capturedCards.length})`}
+          </span>
+          <span>→</span>
+        </Link>
 
         {confirmReset ? (
           <div className="flex flex-wrap items-center gap-2">

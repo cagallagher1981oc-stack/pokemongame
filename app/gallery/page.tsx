@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   DndContext,
   closestCenter,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useSensor,
   useSensors,
@@ -143,9 +143,10 @@ export default function GalleryPage() {
     setGameState(loadGameState());
   }, []);
 
-  // dnd-kit sensors — 250 ms long-press to start drag (works on touch & mouse)
+  // Mouse: drag starts after moving 8px (natural desktop feel, no delay)
+  // Touch: 250 ms long-press so normal scrolling/tapping still works
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   );
 
