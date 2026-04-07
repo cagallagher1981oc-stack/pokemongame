@@ -15,6 +15,7 @@ const LIFELINE_META: { key: keyof Lifelines; label: string; icon: string; desc: 
   { key: 'artistInsight', label: 'Unblur', icon: '👁️', desc: 'Reveal bottom half of card' },
   { key: 'evolutionChain', label: 'Evo', icon: '🧬', desc: 'Show evolution info' },
   { key: 'secondChance', label: '2nd', icon: '🛡️', desc: 'One free miss' },
+  { key: 'skip', label: 'Skip', icon: '💨', desc: 'Skip card — no streak penalty' },
 ];
 
 export default function LifelineBar({ lifelines, activeLifelines, onUse }: Props) {
@@ -26,7 +27,7 @@ export default function LifelineBar({ lifelines, activeLifelines, onUse }: Props
       >
         Trainer Tools
       </p>
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+      <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
         {LIFELINE_META.map(({ key, label, icon, desc }) => {
           const count = lifelines[key];
           const isUsed = count === 0;

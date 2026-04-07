@@ -7,6 +7,7 @@ export interface Lifelines {
   artistInsight: number;
   evolutionChain: number;
   secondChance: number;
+  skip: number;
 }
 
 export interface CapturedCard {
@@ -20,13 +21,13 @@ export interface CapturedCard {
 }
 
 export interface GameState {
-  totalGuessed: number; // cards in capturedCardIds
+  totalGuessed: number;
   score: number;
   currentStreak: number;
   incorrectGuesses: number;
   capturedCardIds: string[];
   capturedCards: CapturedCard[];
-  recycledCards: CapturedCard[]; // soft-deleted cards awaiting permanent removal
+  recycledCards: CapturedCard[];
   lifelines: Lifelines;
 }
 
@@ -48,6 +49,7 @@ export const DEFAULT_LIFELINES: Lifelines = {
   artistInsight: 5,
   evolutionChain: 5,
   secondChance: 5,
+  skip: 3,
 };
 
 export function loadGameState(): GameState {
@@ -56,9 +58,9 @@ export function loadGameState(): GameState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState();
     const state = JSON.parse(raw) as GameState;
-    // Migrate: ensure new fields have defaults for existing save data
     if (state.incorrectGuesses === undefined) state.incorrectGuesses = 0;
     if (state.recycledCards === undefined) state.recycledCards = [];
+    if (state.lifelines.skip === undefined) state.lifelines.skip = 3;
     return state;
   } catch {
     return defaultState();
@@ -89,7 +91,6 @@ export function resetGameState(): GameState {
   return state;
 }
 
-/** Reset stats and lifelines but keep the captured card collection and recycle bin. */
 export function softResetGameState(current: GameState): GameState {
   const state: GameState = {
     ...defaultState(),
@@ -110,15 +111,11 @@ export function addCapturedCard(state: GameState, card: CapturedCard): GameState
     currentStreak: state.currentStreak + 1,
     capturedCardIds: [...state.capturedCardIds, card.id],
     capturedCards: [...state.capturedCards, card],
-    // Remove from recycle bin if it was there (re-captured after recycling)
     recycledCards: state.recycledCards.filter((c) => c.id !== card.id),
   };
-
-  // Check milestone 50 — refill all lifelines
   if (newState.totalGuessed === 50) {
     newState.lifelines = { ...DEFAULT_LIFELINES };
   }
-
   saveGameState(newState);
   return newState;
 }
@@ -133,20 +130,23 @@ export function recordMiss(state: GameState): GameState {
   return newState;
 }
 
+/** Skip: resets streak but does NOT increment incorrectGuesses. */
+export function skipCard(state: GameState): GameState {
+  const newState: GameState = { ...state, currentStreak: 0 };
+  saveGameState(newState);
+  return newState;
+}
+
 export function useLifeline(state: GameState, lifeline: keyof Lifelines): GameState {
   if (state.lifelines[lifeline] <= 0) return state;
   const newState: GameState = {
     ...state,
-    lifelines: {
-      ...state.lifelines,
-      [lifeline]: state.lifelines[lifeline] - 1,
-    },
+    lifelines: { ...state.lifelines, [lifeline]: state.lifelines[lifeline] - 1 },
   };
   saveGameState(newState);
   return newState;
 }
 
-/** Toggle isFavorite on a captured card. */
 export function toggleFavorite(state: GameState, cardId: string): GameState {
   const newState: GameState = {
     ...state,
@@ -158,7 +158,6 @@ export function toggleFavorite(state: GameState, cardId: string): GameState {
   return newState;
 }
 
-/** Move a card to the recycle bin. Does not affect score. */
 export function releaseCard(state: GameState, cardId: string): GameState {
   const card = state.capturedCards.find((c) => c.id === cardId);
   const newState: GameState = {
@@ -173,7 +172,6 @@ export function releaseCard(state: GameState, cardId: string): GameState {
   return newState;
 }
 
-/** Restore a card from the recycle bin back into the collection. */
 export function restoreCard(state: GameState, cardId: string): GameState {
   const card = state.recycledCards.find((c) => c.id === cardId);
   if (!card) return state;
@@ -187,11 +185,43 @@ export function restoreCard(state: GameState, cardId: string): GameState {
   return newState;
 }
 
-/** Permanently delete all cards in the recycle bin. */
 export function emptyRecycleBin(state: GameState): GameState {
   const newState: GameState = { ...state, recycledCards: [] };
   saveGameState(newState);
   return newState;
+}
+
+/** Persist a new card display order after drag-and-drop reordering. */
+export function setCardOrder(state: GameState, orderedIds: string[]): GameState {
+  const cardMap = new Map(state.capturedCards.map((c) => [c.id, c]));
+  const reordered = orderedIds.map((id) => cardMap.get(id)).filter(Boolean) as CapturedCard[];
+  const newState: GameState = { ...state, capturedCards: reordered };
+  saveGameState(newState);
+  return newState;
+}
+
+/** Encode collection to a shareable Base64 Trainer Code. */
+export function exportTrainerCode(state: GameState): string {
+  return btoa(encodeURIComponent(JSON.stringify(state.capturedCards)));
+}
+
+/** Decode a Trainer Code and merge cards into the current state (no duplicates). */
+export function importTrainerCode(state: GameState, code: string): { newState: GameState; added: number } {
+  const decoded: CapturedCard[] = JSON.parse(decodeURIComponent(atob(code.trim())));
+  if (!Array.isArray(decoded)) throw new Error('Invalid format');
+
+  const existingIds = new Set(state.capturedCardIds);
+  const newCards = decoded.filter(
+    (c) => c && typeof c.id === 'string' && typeof c.name === 'string' && !existingIds.has(c.id)
+  );
+
+  const newState: GameState = {
+    ...state,
+    capturedCardIds: [...state.capturedCardIds, ...newCards.map((c) => c.id)],
+    capturedCards: [...state.capturedCards, ...newCards],
+  };
+  saveGameState(newState);
+  return { newState, added: newCards.length };
 }
 
 export { TARGET };

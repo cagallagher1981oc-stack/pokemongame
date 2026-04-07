@@ -8,6 +8,7 @@ import {
   loadGameState,
   resetGameState,
   softResetGameState,
+  skipCard,
   addCapturedCard,
   recordMiss,
   useLifeline,
@@ -59,6 +60,7 @@ export default function GameCard() {
   const [milestoneToShow, setMilestoneToShow] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [showSmoke, setShowSmoke] = useState(false);
 
   useEffect(() => {
     setGameState(loadGameState());
@@ -76,6 +78,7 @@ export default function GameCard() {
     setIsRevealing(false);
     setSecondChanceUsed(false);
     setHasSecondChanceActive(false);
+    setShowSmoke(false);
     setError(null);
 
     try {
@@ -181,6 +184,12 @@ export default function GameCard() {
         break;
       case 'secondChance':
         setHasSecondChanceActive(true);
+        break;
+      case 'skip':
+        // Reset streak, no incorrectGuesses penalty, then fetch new card
+        setGameState(skipCard(newState));
+        setShowSmoke(true);
+        setTimeout(() => fetchRound(), 700);
         break;
     }
   };
@@ -327,6 +336,13 @@ export default function GameCard() {
                   background: 'radial-gradient(ellipse, rgba(157, 53, 255, 0.15) 0%, transparent 70%)',
                 }}
               />
+
+              {/* Smoke screen overlay — Tactical Skip */}
+              {showSmoke && (
+                <div
+                  className="smoke-screen absolute inset-0 z-20 pointer-events-none rounded-2xl"
+                />
+              )}
 
               {/* Card image — handles all blur states */}
               <div className="relative w-48 h-64 z-10">

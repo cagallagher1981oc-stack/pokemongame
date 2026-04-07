@@ -130,6 +130,24 @@ body {
   animation: ring-pulse 2s ease-in-out infinite;
 }
 
+/* Tactical Skip — smoke screen */
+@keyframes smoke-rise {
+  0%   { opacity: 0;    transform: scale(0.6) translateY(10px); }
+  25%  { opacity: 0.9;  transform: scale(1)   translateY(0px); }
+  70%  { opacity: 0.55; transform: scale(1.15) translateY(-8px); }
+  100% { opacity: 0;    transform: scale(1.35) translateY(-20px); }
+}
+
+.smoke-screen {
+  animation: smoke-rise 0.95s ease-out forwards;
+  background: radial-gradient(ellipse at 50% 60%,
+    rgba(210, 215, 235, 0.88) 0%,
+    rgba(180, 185, 215, 0.65) 35%,
+    rgba(150, 155, 195, 0.35) 65%,
+    transparent 100%
+  );
+}
+
 /* Card restore "pop in" animation */
 @keyframes card-restore {
   0%   { transform: scale(0) rotate(8deg);  opacity: 0; filter: blur(4px); }
