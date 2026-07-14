@@ -6,10 +6,11 @@ interface Props {
   captured: number;
   score: number;
   streak: number;
+  bestStreak: number;
   incorrectGuesses: number;
 }
 
-export default function ProgressBar({ captured, score, streak, incorrectGuesses }: Props) {
+export default function ProgressBar({ captured, score, streak, bestStreak, incorrectGuesses }: Props) {
   const pct = Math.min((captured / TARGET) * 100, 100);
 
   return (
@@ -51,14 +52,36 @@ export default function ProgressBar({ captured, score, streak, incorrectGuesses 
         {/* Divider */}
         <div className="w-px h-4 opacity-30" style={{ background: '#9d35ff' }} />
 
-        {/* Streak */}
+        {/* Streak — flame heats up as it grows */}
         <div className="flex items-center gap-1.5">
-          <span className="text-base leading-none" role="img" aria-label="streak">🔥</span>
+          <span
+            key={streak}
+            className={`text-base leading-none ${streak > 1 ? 'streak-pop' : ''}`}
+            role="img"
+            aria-label="streak"
+            title="Current streak"
+          >
+            🔥
+          </span>
           <span
             className="text-sm font-bold tabular-nums"
-            style={{ color: streak > 1 ? '#ff8c42' : '#4a4070' }}
+            style={{
+              color: streak >= 10 ? '#ffd23f' : streak >= 5 ? '#ff5c1a' : streak > 1 ? '#ff8c42' : '#4a4070',
+              textShadow: streak >= 5 ? '0 0 8px rgba(255, 120, 40, 0.6)' : 'none',
+            }}
           >
             ×{streak}
+          </span>
+        </div>
+
+        {/* Divider */}
+        <div className="w-px h-4 opacity-30" style={{ background: '#9d35ff' }} />
+
+        {/* Best streak */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-base leading-none" role="img" aria-label="best streak" title="Best streak">🏅</span>
+          <span className="text-sm font-bold tabular-nums" style={{ color: '#9d70cc' }}>
+            {bestStreak}
           </span>
         </div>
       </div>

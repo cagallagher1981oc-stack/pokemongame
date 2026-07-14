@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -10,13 +10,23 @@ import {
   softResetGameState,
   skipCard,
   addCapturedCard,
+  recordDuplicateCatch,
   recordMiss,
-  useLifeline,
+  spendLifeline,
   MILESTONES,
   Lifelines,
   TARGET,
 } from '@/lib/game-state';
 import { fireCorrectConfetti, fireMilestoneConfetti } from '@/lib/confetti';
+import {
+  isMuted,
+  setMuted,
+  playClick,
+  playCorrect,
+  playWrong,
+  playMilestone,
+  playSkip,
+} from '@/lib/sounds';
 import ProgressBar from './ProgressBar';
 import LifelineBar from './LifelineBar';
 import TypeBadge from './TypeBadge';
@@ -61,13 +71,39 @@ export default function GameCard() {
   const [error, setError] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [showSmoke, setShowSmoke] = useState(false);
+  const [alreadyOwned, setAlreadyOwned] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
+
+  // Prefetch pipeline — keeps the next round ready so "Next Card" is instant
+  const nextRoundRef = useRef<RoundData | null>(null);
+  const prefetchingRef = useRef(false);
+  const roundIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     setGameState(loadGameState());
+    setSoundOn(!isMuted());
+  }, []);
+
+  useEffect(() => {
+    roundIdRef.current = round?.card.id ?? null;
+  }, [round]);
+
+  const prefetchNext = useCallback(async () => {
+    if (prefetchingRef.current || nextRoundRef.current) return;
+    prefetchingRef.current = true;
+    try {
+      const res = await fetch('/api/card');
+      if (res.ok) {
+        nextRoundRef.current = (await res.json()) as RoundData;
+      }
+    } catch {
+      // Prefetch is best-effort; the next fetchRound will retry over the network
+    } finally {
+      prefetchingRef.current = false;
+    }
   }, []);
 
   const fetchRound = useCallback(async () => {
-    setLoading(true);
     setGuessState('idle');
     setSelectedOption(null);
     setActiveLifelines(new Set());
@@ -79,69 +115,125 @@ export default function GameCard() {
     setSecondChanceUsed(false);
     setHasSecondChanceActive(false);
     setShowSmoke(false);
+    setAlreadyOwned(false);
     setError(null);
 
+    // Use the prefetched round if we have one (and it isn't the card on screen)
+    const queued = nextRoundRef.current;
+    nextRoundRef.current = null;
+    if (queued && queued.card.id !== roundIdRef.current) {
+      setRound(queued);
+      setVisibleOptions(queued.options);
+      setLoading(false);
+      prefetchNext();
+      return;
+    }
+
+    setLoading(true);
     try {
       const res = await fetch('/api/card');
       if (!res.ok) throw new Error('Failed to load card');
       const data: RoundData = await res.json();
       setRound(data);
       setVisibleOptions(data.options);
+      prefetchNext();
     } catch {
       setError('Could not load a card. Try again!');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [prefetchNext]);
 
   useEffect(() => {
     if (gameState !== null) fetchRound();
   }, [gameState === null]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleGuess = (option: string) => {
-    if (!round || !gameState || guessState === 'correct') return;
+  const handleGuess = useCallback(
+    (option: string) => {
+      if (!round || !gameState || guessState !== 'idle') return;
 
-    setSelectedOption(option);
+      setSelectedOption(option);
 
-    if (option === round.card.name) {
-      setGuessState('correct');
-      setBlurLevel('none');
-      setIsRevealing(true);
-      setTimeout(() => setIsRevealing(false), 1000);
-      fireCorrectConfetti();
+      if (option === round.card.name) {
+        setGuessState('correct');
+        setBlurLevel('none');
+        setIsRevealing(true);
+        setTimeout(() => setIsRevealing(false), 1000);
+        fireCorrectConfetti();
+        playCorrect();
 
-      const newState = addCapturedCard(gameState, {
-        id: round.card.id,
-        name: round.card.name,
-        imageSmall: round.card.images.small,
-        imageLarge: round.card.images.large,
-        types: round.card.types,
-        set: round.card.set,
-      });
-      setGameState(newState);
+        const isDuplicate = gameState.capturedCardIds.includes(round.card.id);
+        if (isDuplicate) {
+          setAlreadyOwned(true);
+          setGameState(recordDuplicateCatch(gameState));
+          return;
+        }
 
-      const count = newState.totalGuessed;
-      if (MILESTONES[count]) {
-        fireMilestoneConfetti();
-        setMilestoneToShow(count);
-      }
-    } else {
-      if (hasSecondChanceActive && !secondChanceUsed) {
-        setSecondChanceUsed(true);
-        setSelectedOption(null);
-        setGuessState('idle');
-        setActiveLifelines((prev) => {
-          const next = new Set(prev);
-          next.delete('secondChance');
-          return next;
+        const newState = addCapturedCard(gameState, {
+          id: round.card.id,
+          name: round.card.name,
+          imageSmall: round.card.images.small,
+          imageLarge: round.card.images.large,
+          types: round.card.types,
+          set: round.card.set,
         });
-        return;
+        setGameState(newState);
+
+        const count = newState.totalGuessed;
+        if (MILESTONES[count]) {
+          fireMilestoneConfetti();
+          playMilestone();
+          setMilestoneToShow(count);
+        }
+      } else {
+        if (hasSecondChanceActive && !secondChanceUsed) {
+          setSecondChanceUsed(true);
+          setSelectedOption(null);
+          playClick();
+          setActiveLifelines((prev) => {
+            const next = new Set(prev);
+            next.delete('secondChance');
+            return next;
+          });
+          return;
+        }
+        setGuessState('wrong');
+        setBlurLevel('none'); // reveal the card so you learn what it was
+        playWrong();
+        const newState = recordMiss(gameState);
+        setGameState(newState);
       }
-      setGuessState('wrong');
-      const newState = recordMiss(gameState);
-      setGameState(newState);
-    }
-  };
+    },
+    [round, gameState, guessState, hasSecondChanceActive, secondChanceUsed]
+  );
+
+  // Keyboard shortcuts: 1-4 to guess, Enter / Space / N for next card
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (loading || !round || milestoneToShow || confirmReset) return;
+      const target = e.target as HTMLElement | null;
+      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+
+      if (guessState === 'idle') {
+        const idx = parseInt(e.key, 10) - 1;
+        if (idx >= 0 && idx < 4) {
+          const rendered = round.options.filter((o) => visibleOptions.includes(o));
+          if (rendered[idx]) {
+            e.preventDefault();
+            handleGuess(rendered[idx]);
+          }
+        }
+      } else if (guessState === 'correct' || guessState === 'wrong') {
+        if (e.key === 'Enter' || e.key === ' ' || e.key.toLowerCase() === 'n') {
+          e.preventDefault();
+          playClick();
+          fetchRound();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [loading, round, milestoneToShow, confirmReset, guessState, visibleOptions, handleGuess, fetchRound]);
 
   const handleLifeline = (key: keyof Lifelines) => {
     if (!round || !gameState) return;
@@ -156,20 +248,27 @@ export default function GameCard() {
       }
       const safeRegex = new RegExp(card.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
       setHintText(raw.replace(safeRegex, '[REDACTED]'));
-      const newState = useLifeline(gameState, key);
+      playClick();
+      const newState = spendLifeline(gameState, key);
       setGameState(newState);
       setActiveLifelines((prev) => new Set([...prev, key]));
       return;
     }
 
-    const newState = useLifeline(gameState, key);
+    const newState = spendLifeline(gameState, key);
     setGameState(newState);
     setActiveLifelines((prev) => new Set([...prev, key]));
+    if (key !== 'skip') playClick();
 
     switch (key) {
       case 'fiftyFifty': {
         const wrong = visibleOptions.filter((o) => o !== round.card.name);
-        const toRemove = wrong.sort(() => Math.random() - 0.5).slice(0, 2);
+        const shuffled = [...wrong];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        const toRemove = shuffled.slice(0, 2);
         setVisibleOptions((prev) => prev.filter((o) => !toRemove.includes(o)));
         break;
       }
@@ -189,9 +288,17 @@ export default function GameCard() {
         // Reset streak, no incorrectGuesses penalty, then fetch new card
         setGameState(skipCard(newState));
         setShowSmoke(true);
+        playSkip();
         setTimeout(() => fetchRound(), 700);
         break;
     }
+  };
+
+  const handleToggleSound = () => {
+    const next = !soundOn;
+    setSoundOn(next);
+    setMuted(!next);
+    if (next) playClick();
   };
 
   const handleCloseMilestone = () => {
@@ -276,10 +383,8 @@ export default function GameCard() {
   }
 
   // Image filter for the base (non-partial) layer
-  const baseFilter =
-    guessState === 'correct' ? 'none'
-    : blurLevel === 'high' ? 'blur(8px)'
-    : 'none';
+  const baseFilter = blurLevel === 'high' ? 'blur(8px)' : 'none';
+  const answered = guessState === 'correct' || guessState === 'wrong';
 
   return (
     <div className="flex flex-col gap-4 w-full max-w-lg mx-auto">
@@ -291,6 +396,7 @@ export default function GameCard() {
         captured={gameState.totalGuessed}
         score={gameState.score}
         streak={gameState.currentStreak}
+        bestStreak={gameState.bestStreak}
         incorrectGuesses={gameState.incorrectGuesses}
       />
 
@@ -303,8 +409,11 @@ export default function GameCard() {
         }}
       >
         {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin text-4xl">⚙️</div>
+          <div className="flex flex-col items-center justify-center h-64 gap-3">
+            <div className="pokeball-spinner" aria-label="Loading" role="status" />
+            <p className="text-sm font-bold" style={{ color: '#7a5aaa' }}>
+              Searching tall grass…
+            </p>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
@@ -345,8 +454,8 @@ export default function GameCard() {
               )}
 
               {/* Card image — handles all blur states */}
-              <div className="relative w-48 h-64 z-10">
-                {blurLevel === 'partial' && guessState !== 'correct' ? (
+              <div key={round.card.id} className="relative w-48 h-64 z-10 card-deal">
+                {blurLevel === 'partial' ? (
                   <>
                     {/* Top half: fully blurred */}
                     <Image
@@ -356,7 +465,7 @@ export default function GameCard() {
                       className="object-contain rounded-xl"
                       style={{ filter: 'blur(8px)' }}
                       sizes="192px"
-                      priority
+                      preload
                     />
                     {/* Bottom half: revealed via mask */}
                     <div
@@ -381,14 +490,14 @@ export default function GameCard() {
                 ) : (
                   <Image
                     src={round.card.images.small}
-                    alt={guessState === 'correct' ? round.card.name : 'Mystery Pokémon'}
+                    alt={answered ? round.card.name : 'Mystery Pokémon'}
                     fill
                     className={`object-contain rounded-xl transition-all duration-700 ${
                       guessState === 'correct' && isRevealing ? 'shimmer-reveal' : ''
                     }`}
                     style={{ filter: baseFilter }}
                     sizes="192px"
-                    priority
+                    preload
                   />
                 )}
               </div>
@@ -419,6 +528,24 @@ export default function GameCard() {
                 </div>
               )}
             </div>
+
+            {/* Reveal banner after a wrong guess — see what it actually was */}
+            {guessState === 'wrong' && (
+              <div className="px-4 pb-1 text-center">
+                <p className="font-bold text-sm" style={{ color: '#c8a8ff' }}>
+                  It was <span style={{ color: '#39eb8c' }}>{round.card.name}</span>!
+                </p>
+              </div>
+            )}
+
+            {/* Already-captured note — still counts for score & streak */}
+            {alreadyOwned && guessState === 'correct' && (
+              <div className="px-4 pb-1 text-center">
+                <p className="font-bold text-sm" style={{ color: '#f0c040' }}>
+                  ✨ Already in your gallery — still counts for score &amp; streak!
+                </p>
+              </div>
+            )}
 
             {/* Lifeline info panels */}
             {(hintText || showTypes || showEvo) && (
@@ -466,6 +593,8 @@ export default function GameCard() {
                 const isVisible = visibleOptions.includes(option);
                 if (!isVisible) return null;
 
+                const keyNumber =
+                  round.options.filter((o) => visibleOptions.includes(o)).indexOf(option) + 1;
                 const isCorrectOption = option === round.card.name;
                 const isSelectedWrong = option === selectedOption && guessState === 'wrong';
 
@@ -505,7 +634,7 @@ export default function GameCard() {
                     key={option}
                     onClick={() => handleGuess(option)}
                     disabled={guessState !== 'idle'}
-                    className={`font-bold text-sm px-2 rounded-2xl transition-all text-center
+                    className={`relative font-bold text-sm px-2 rounded-2xl transition-all text-center
                       flex items-center justify-center active:scale-95 ${
                       guessState === 'idle'
                         ? 'hover:border-purple-400 hover:bg-[#1a1d50]'
@@ -513,6 +642,14 @@ export default function GameCard() {
                     } ${glowClass}`}
                     style={{ ...inlineStyle, minHeight: '56px' }}
                   >
+                    {guessState === 'idle' && (
+                      <span
+                        className="absolute top-1 left-2 hidden sm:inline text-[10px] font-black opacity-40"
+                        aria-hidden="true"
+                      >
+                        {keyNumber}
+                      </span>
+                    )}
                     {option}
                   </button>
                 );
@@ -520,10 +657,13 @@ export default function GameCard() {
             </div>
 
             {/* Next card button */}
-            {(guessState === 'correct' || guessState === 'wrong') && !milestoneToShow && (
+            {answered && !milestoneToShow && (
               <div className="px-4 pb-4">
                 <button
-                  onClick={fetchRound}
+                  onClick={() => {
+                    playClick();
+                    fetchRound();
+                  }}
                   className="w-full font-black py-3 rounded-2xl transition-all text-lg hover:scale-[1.02] active:scale-95"
                   style={{
                     background: 'linear-gradient(135deg, #7b2fff, #c86fff)',
@@ -536,8 +676,8 @@ export default function GameCard() {
               </div>
             )}
 
-            {/* Artist credit */}
-            {guessState === 'correct' && round.card.artist && (
+            {/* Artist credit — shown once the card is revealed */}
+            {answered && round.card.artist && (
               <div className="px-4 pb-4 text-center text-xs" style={{ color: '#4a4070' }}>
                 Art by {round.card.artist} · {round.card.set}
               </div>
@@ -557,18 +697,29 @@ export default function GameCard() {
 
       {/* Footer */}
       <div className="flex items-center justify-between gap-3 px-1 pb-2">
-        <Link
-          href="/gallery"
-          className="font-semibold text-sm flex items-center gap-1 transition-colors hover:opacity-80"
-          style={{ color: '#9d35ff' }}
-        >
-          <span>🖼️</span>
-          <span>
-            Gallery
-            {gameState.capturedCards.length > 0 && ` (${gameState.capturedCards.length})`}
-          </span>
-          <span>→</span>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/gallery"
+            className="font-semibold text-sm flex items-center gap-1 transition-colors hover:opacity-80"
+            style={{ color: '#9d35ff' }}
+          >
+            <span>🖼️</span>
+            <span>
+              Gallery
+              {gameState.capturedCards.length > 0 && ` (${gameState.capturedCards.length})`}
+            </span>
+            <span>→</span>
+          </Link>
+          <button
+            onClick={handleToggleSound}
+            className="text-sm transition-all hover:scale-110 active:scale-95"
+            style={{ opacity: soundOn ? 1 : 0.45 }}
+            title={soundOn ? 'Mute sounds' : 'Unmute sounds'}
+            aria-label={soundOn ? 'Mute sounds' : 'Unmute sounds'}
+          >
+            {soundOn ? '🔊' : '🔇'}
+          </button>
+        </div>
 
         {confirmReset ? (
           <div className="flex flex-wrap items-center gap-2">

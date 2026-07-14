@@ -10,16 +10,16 @@ interface Props {
 
 export default function MilestonePopup({ count, onClose }: Props) {
   const milestone = MILESTONES[count];
-  if (!milestone) return null;
-
   const isGrandChampion = count === 100;
 
+  // Hooks must run unconditionally — the early return happens after
   useEffect(() => {
-    if (!isGrandChampion) {
-      const t = setTimeout(onClose, 4000);
-      return () => clearTimeout(t);
-    }
-  }, [isGrandChampion, onClose]);
+    if (!milestone || isGrandChampion) return;
+    const t = setTimeout(onClose, 4000);
+    return () => clearTimeout(t);
+  }, [milestone, isGrandChampion, onClose]);
+
+  if (!milestone) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(5, 5, 20, 0.75)', backdropFilter: 'blur(4px)' }}>

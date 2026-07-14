@@ -24,6 +24,7 @@ export interface GameState {
   totalGuessed: number;
   score: number;
   currentStreak: number;
+  bestStreak: number;
   incorrectGuesses: number;
   capturedCardIds: string[];
   capturedCards: CapturedCard[];
@@ -61,6 +62,7 @@ export function loadGameState(): GameState {
     if (state.incorrectGuesses === undefined) state.incorrectGuesses = 0;
     if (state.recycledCards === undefined) state.recycledCards = [];
     if (state.lifelines.skip === undefined) state.lifelines.skip = 5;
+    if (state.bestStreak === undefined) state.bestStreak = state.currentStreak ?? 0;
     return state;
   } catch {
     return defaultState();
@@ -72,6 +74,7 @@ function defaultState(): GameState {
     totalGuessed: 0,
     score: 0,
     currentStreak: 0,
+    bestStreak: 0,
     incorrectGuesses: 0,
     capturedCardIds: [],
     capturedCards: [],
@@ -103,12 +106,14 @@ export function softResetGameState(current: GameState): GameState {
 }
 
 export function addCapturedCard(state: GameState, card: CapturedCard): GameState {
-  if (state.capturedCardIds.includes(card.id)) return state;
+  if (state.capturedCardIds.includes(card.id)) return recordDuplicateCatch(state);
+  const newStreak = state.currentStreak + 1;
   const newState: GameState = {
     ...state,
     totalGuessed: state.totalGuessed + 1,
     score: state.score + 1,
-    currentStreak: state.currentStreak + 1,
+    currentStreak: newStreak,
+    bestStreak: Math.max(state.bestStreak, newStreak),
     capturedCardIds: [...state.capturedCardIds, card.id],
     capturedCards: [...state.capturedCards, card],
     recycledCards: state.recycledCards.filter((c) => c.id !== card.id),
@@ -116,6 +121,20 @@ export function addCapturedCard(state: GameState, card: CapturedCard): GameState
   if (newState.totalGuessed === 50) {
     newState.lifelines = { ...DEFAULT_LIFELINES };
   }
+  saveGameState(newState);
+  return newState;
+}
+
+/** Correct guess on a card already in the gallery: score & streak still count,
+ *  but capture progress doesn't advance and no duplicate is stored. */
+export function recordDuplicateCatch(state: GameState): GameState {
+  const newStreak = state.currentStreak + 1;
+  const newState: GameState = {
+    ...state,
+    score: state.score + 1,
+    currentStreak: newStreak,
+    bestStreak: Math.max(state.bestStreak, newStreak),
+  };
   saveGameState(newState);
   return newState;
 }
@@ -137,7 +156,7 @@ export function skipCard(state: GameState): GameState {
   return newState;
 }
 
-export function useLifeline(state: GameState, lifeline: keyof Lifelines): GameState {
+export function spendLifeline(state: GameState, lifeline: keyof Lifelines): GameState {
   if (state.lifelines[lifeline] <= 0) return state;
   const newState: GameState = {
     ...state,

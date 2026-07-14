@@ -21,7 +21,6 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import {
   loadGameState,
-  saveGameState,
   GameState,
   CapturedCard,
   TARGET,
@@ -140,6 +139,8 @@ export default function GalleryPage() {
   const [importStatus, setImportStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
   useEffect(() => {
+    // localStorage is client-only, so state must hydrate after mount
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGameState(loadGameState());
   }, []);
 

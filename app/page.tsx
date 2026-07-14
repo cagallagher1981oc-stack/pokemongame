@@ -46,8 +46,8 @@ export default function Home() {
       <div className="relative z-10 max-w-lg mx-auto">
         <header className="text-center mb-6">
           <h1
-            className="text-4xl font-black tracking-tight"
-            style={{ color: '#c8a8ff', textShadow: '0 0 24px rgba(157, 53, 255, 0.55), 0 2px 4px rgba(0,0,0,0.5)' }}
+            className="text-5xl font-black tracking-tight title-shimmer"
+            style={{ filter: 'drop-shadow(0 0 18px rgba(157, 53, 255, 0.45)) drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }}
           >
             Poké-Guess
           </h1>

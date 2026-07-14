@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchRandomDecadeCard, fetchDistractorNames, getDecadeSetIds } from '@/lib/pokemon-api';
+import { fetchRandomDecadeCard, fetchDistractorNames, getDecadeSetIds, shuffle } from '@/lib/pokemon-api';
 
 // Fallback pool used when the API can't supply enough unique distractor names
 const FALLBACK_NAMES = [
@@ -29,7 +29,7 @@ export async function GET() {
       if (!unique.includes(fallback)) unique.push(fallback);
     }
 
-    const options = unique.slice(0, 4).sort(() => Math.random() - 0.5);
+    const options = shuffle(unique.slice(0, 4));
 
     return NextResponse.json({
       card: {
